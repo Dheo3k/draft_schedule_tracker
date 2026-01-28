@@ -1,0 +1,627 @@
+diff --git a/docs/index.admin.html b/docs/index.admin.html
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/index.admin.html
+@@ -0,0 +1,569 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8" />
++  <meta name="viewport" content="width=device-width,initial-scale=1" />
++  <title>Attendance Tracker — Interactive Calendar</title>
++  <style>
++    :root{--bg:#f7f7fb;--card:#fff;--muted:#6b7280;--accent:#0ea5a4;--danger:#ef4444}
++    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#111;margin:0;padding:24px}
++    .container{max-width:1200px;margin:0 auto}
++    .card{background:var(--card);padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
++    header{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap}
++    h1{font-size:20px;margin:0}
++    .controls{display:flex;gap:8px;align-items:center}
++    select,input[type=number],input[type=text],input[type=date],input[type=color]{padding:6px 8px;border-radius:8px;border:1px solid #e6e9ef}
++    .calendar{margin-top:18px}
++    table{width:100%;border-collapse:collapse}
++    th{text-align:center;padding:8px;color:var(--muted);font-weight:600}
++    td{width:14.285%;height:96px;border:1px solid #f0f2f6;padding:6px;vertical-align:top}
++    .date{font-weight:700;font-size:13px}
++    .day-cell{cursor:pointer;border-radius:8px;padding:6px;height:100%;display:flex;flex-direction:column;justify-content:space-between;transition:background .12s}
++    .day-cell:hover{background:#f3f7f6}
++    .selected{outline:3px solid rgba(14,165,164,0.12);background:rgba(14,165,164,0.06)}
++    .scheduled{border:2px solid rgba(0,0,0,0.04);position:relative}
++    .scheduled .sched-badge{position:absolute;right:6px;top:6px;padding:4px 6px;border-radius:999px;font-size:11px;color:#fff;background:rgba(0,0,0,0.18)}
++    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
++    footer{margin-top:14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
++    .summary{font-size:15px}
++    .ok{color:var(--accent);font-weight:700}
++    .no{color:var(--danger);font-weight:700}
++    .muted{color:var(--muted)}
++    .legend{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
++    .legend .item{display:flex;gap:6px;align-items:center}
++    .swatch{width:14px;height:14px;border-radius:4px;display:inline-block}
++    .cols{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-top:12px}
++    .panel{background:#fff;border-radius:10px;padding:12px;border:1px solid #eef2f7;min-width:260px}
++    .panel h3{margin:0 0 8px 0;font-size:13px}
++    .small{font-size:13px;color:var(--muted)}
++    .category-row{display:flex;gap:8px;align-items:center;margin-bottom:6px}
++    .tag{display:inline-block;padding:4px 8px;border-radius:8px;color:#fff;font-size:12px}
++    .list{max-height:200px;overflow:auto;padding-right:6px}
++    button{padding:6px 10px;border-radius:8px;border:1px solid #e6e9ef;background:#fff;cursor:pointer}
++    button.primary{background:var(--accent);border-color:transparent;color:white}
++    .user-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #f0f2f6}
++    .user-actions{display:flex;gap:6px}
++  </style>
++</head>
++<body>
++  <div class="container">
++    <div class="card">
++      <header>
++        <div>
++          <h1>Attendance Tracker</h1>
++          <div class="muted">Click days you CAN attend. Scheduled days are highlighted.</div>
++        </div>
++
++        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
++          <label class="small muted">Name</label>
++          <input id="username" type="text" placeholder="Enter your name" style="width:200px" />
++          <button id="loadUserBtn">Load</button>
++          <button id="saveUserBtn" class="primary">Save</button>
++          <button id="exportBtn">Export CSV (All users)</button>
++        </div>
++      </header>
++
++      <div class="cols">
++        <div class="panel" style="flex:1 1 420px">
++          <h3>View</h3>
++          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
++            <label class="muted">Month</label>
++            <select id="month"></select>
++            <label class="muted">Year</label>
++            <input id="year" type="number" min="2000" max="2099" style="width:92px" />
++          </div>
++
++          <div class="small muted" style="margin-bottom:8px">Scheduled Days control and calendar settings</div>
++
++          <div style="margin-bottom:8px">
++            <label class="muted">Scheduled Days</label>
++            <select id="scheduledMode" disabled>
++              <option value="specific">Specific calendar dates</option>
++            </select>
++          </div>
++
++          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
++            <input id="schedDate" type="date" />
++            <select id="schedCategory">
++              <option value="">(No category)</option>
++            </select>
++            <button id="addSchedBtn">Add</button>
++          </div>
++
++          <div class="small muted">Scheduled dates (click Remove to delete)</div>
++          <div id="scheduledList" class="list" style="margin-top:6px"></div>
++        </div>
++
++        <div class="panel" style="width:320px">
++          <h3>Attendance Categories (up to 5)</h3>
++          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
++            <input id="catName" type="text" placeholder="Category name" style="flex:1" />
++            <input id="catColor" type="color" value="#3b82f6" />
++            <button id="addCatBtn">Add</button>
++          </div>
++          <div class="small muted">Create categories and assign a color. You can assign a category when adding scheduled dates.</div>
++
++          <div id="categories" style="margin-top:8px"></div>
++        </div>
++
++        <div class="panel" style="width:320px" id="adminPanel">
++          <h3>Admin — Saved Users</h3>
++          <div class="small muted">List of saved users. Load, export, share, or delete individual users.</div>
++          <div id="adminUsers" class="list" style="margin-top:8px"></div>
++          <div style="margin-top:8px">
++            <button id="refreshAdminBtn">Refresh</button>
++            <button id="exportAllBtn">Export All (CSV)</button>
++          </div>
++        </div>
++      </div>
++
++      <div class="calendar" style="margin-top:12px">
++        <table aria-label="calendar">
++          <thead>
++            <tr id="weekdayRow"></tr>
++          </thead>
++          <tbody id="calendarBody"></tbody>
++        </table>
++      </div>
++
++      <footer>
++        <div class="legend">
++          <div class="item"><span class="swatch" style="background:var(--accent)"></span><span class="muted">Your available days</span></div>
++          <div class="item"><span class="swatch" style="background:#111;border-radius:2px"></span><span class="muted">Scheduled day (category color shown)</span></div>
++        </div>
++
++        <div>
++          <div class="summary" id="summary">Loading…</div>
++        </div>
++      </footer>
++    </div>
++
++    <div style="margin-top:12px;font-size:13px;color:var(--muted)">
++      Tip: Scheduled dates and categories are saved for the tracker. Your availability is saved per name. Use Export to download CSV of saved users and schedule conflicts. Use Admin view to manage saved users.
++    </div>
++  </div>
++
++  <script>
++    // Storage keys
++    const SETTINGS_KEY = 'attendance_settings_v1'
++    const USER_PREFIX = 'attendance_user_' // saved as attendance_user_<name>
++
++    // Default settings: specific mode by default
++    const defaultSettings = {
++      mode: 'specific',
++      dates: [], // { date: 'YYYY-MM-DD', categoryId: null }
++      categories: [] // { id, name, color }
++    }
++
++    // Utility
++    function toISO(y,m,d){ const mm = String(m).padStart(2,'0'); const dd = String(d).padStart(2,'0'); return `${y}-${mm}-${dd}` }
++    function today() { const d = new Date(); return {y:d.getFullYear(), m:d.getMonth(), day:d.getDate()} }
++    function generateId(prefix='id'){ return prefix + '-' + Math.random().toString(36).slice(2,9) }
++
++    // Elements
++    const monthSelect = document.getElementById('month')
++    const yearInput = document.getElementById('year')
++    const calendarBody = document.getElementById('calendarBody')
++    const weekdayRow = document.getElementById('weekdayRow')
++    const summaryEl = document.getElementById('summary')
++    const scheduledList = document.getElementById('scheduledList')
++    const schedDateInput = document.getElementById('schedDate')
++    const schedCategorySelect = document.getElementById('schedCategory')
++    const addSchedBtn = document.getElementById('addSchedBtn')
++    const scheduledMode = document.getElementById('scheduledMode')
++
++    const catNameInput = document.getElementById('catName')
++    const catColorInput = document.getElementById('catColor')
++    const addCatBtn = document.getElementById('addCatBtn')
++    const categoriesDiv = document.getElementById('categories')
++
++    const usernameInput = document.getElementById('username')
++    const loadUserBtn = document.getElementById('loadUserBtn')
++    const saveUserBtn = document.getElementById('saveUserBtn')
++    const exportBtn = document.getElementById('exportBtn')
++
++    const adminUsersDiv = document.getElementById('adminUsers')
++    const refreshAdminBtn = document.getElementById('refreshAdminBtn')
++    const exportAllBtn = document.getElementById('exportAllBtn')
++
++    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
++    const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
++
++    // State
++    let settings = loadSettings()
++    let state = {
++      year: new Date().getFullYear(),
++      month: new Date().getMonth(),
++      availableSet: new Set(), // for current user
++      currentUser: '' // name string
++    }
++
++    // Load settings from localStorage (or defaults)
++    function loadSettings(){
++      try {
++        const raw = localStorage.getItem(SETTINGS_KEY)
++        if(!raw) return JSON.parse(JSON.stringify(defaultSettings))
++        const parsed = JSON.parse(raw)
++        parsed.dates = parsed.dates || []
++        parsed.categories = parsed.categories || []
++        parsed.mode = 'specific'
++        return parsed
++      } catch(e){ console.error('loadSettings',e); return JSON.parse(JSON.stringify(defaultSettings)) }
++    }
++
++    function saveSettings(){
++      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings))
++      renderCategories()
++      populateSchedCategorySelect()
++      renderScheduledList()
++      renderCalendar()
++      renderAdminUsers()
++    }
++
++    // User persistence
++    function loadUser(name){
++      if(!name) return { name:'', available:[] }
++      const key = USER_PREFIX + name
++      const raw = localStorage.getItem(key)
++      if(!raw) return { name, available:[] }
++      try { return JSON.parse(raw) } catch(e){ return { name, available:[] } }
++    }
++
++    function saveUser(name, data){
++      if(!name) return
++      localStorage.setItem(USER_PREFIX + name, JSON.stringify(data))
++      renderAdminUsers()
++    }
++
++    function deleteUser(name){
++      if(!name) return
++      const key = USER_PREFIX + name
++      localStorage.removeItem(key)
++      // if currently loaded, clear
++      if(state.currentUser === name){
++        state.currentUser = ''
++        state.availableSet = new Set()
++        usernameInput.value = ''
++        renderCalendar()
++      }
++      renderAdminUsers()
++    }
++
++    function getAllSavedUsers(){
++      const users = []
++      for(let i=0;i<localStorage.length;i++){
++        const k = localStorage.key(i)
++        if(k && k.startsWith(USER_PREFIX)){
++          try{
++            const parsed = JSON.parse(localStorage.getItem(k))
++            users.push(parsed)
++          } catch(e){}
++        }
++      }
++      // sort by name
++      users.sort((a,b)=> (a.name||'').localeCompare(b.name||''))
++      return users
++    }
++
++    // Initialization
++    function init(){
++      // months
++      monthNames.forEach((m,i)=>{ const opt=document.createElement('option'); opt.value=i; opt.textContent=m; monthSelect.appendChild(opt) })
++      monthSelect.value = state.month
++      yearInput.value = state.year
++
++      // weekday header
++      weekdayNames.forEach(d=>{ const th=document.createElement('th'); th.textContent=d; weekdayRow.appendChild(th) })
++
++      // scheduled mode is fixed to 'specific'
++      scheduledMode.value = 'specific'
++
++      // listeners
++      monthSelect.addEventListener('change', e=>{ state.month = +e.target.value; renderCalendar() })
++      yearInput.addEventListener('change', e=>{ state.year = +e.target.value; renderCalendar() })
++
++      addSchedBtn.addEventListener('click', onAddScheduled)
++      addCatBtn.addEventListener('click', onAddCategory)
++      loadUserBtn.addEventListener('click', onLoadUser)
++      saveUserBtn.addEventListener('click', onSaveUser)
++      exportBtn.addEventListener('click', onExport)
++      refreshAdminBtn.addEventListener('click', renderAdminUsers)
++      exportAllBtn.addEventListener('click', onExport)
++
++      // initial UI population
++      renderCategories()
++      populateSchedCategorySelect()
++      renderScheduledList()
++      renderCalendar()
++      renderAdminUsers()
++    }
++
++    // Scheduled dates management
++    function onAddScheduled(){
++      const date = schedDateInput.value
++      if(!date){ alert('Please pick a date'); return }
++      if(settings.dates.some(d => d.date === date)){ alert('Date already scheduled'); return }
++      const catId = schedCategorySelect.value || null
++      settings.dates.push({ date, categoryId: catId })
++      saveSettings()
++      schedDateInput.value = ''
++    }
++
++    function removeScheduled(date){
++      settings.dates = settings.dates.filter(d => d.date !== date)
++      saveSettings()
++    }
++
++    function renderScheduledList(){
++      scheduledList.innerHTML = ''
++      if(settings.dates.length === 0){
++        scheduledList.innerHTML = '<div class="small muted">No scheduled dates</div>'
++        return
++      }
++      settings.dates.slice().sort((a,b)=>a.date.localeCompare(b.date)).forEach(dobj=>{
++        const wrap = document.createElement('div'); wrap.style.display='flex'; wrap.style.justifyContent='space-between'; wrap.style.alignItems='center'; wrap.style.padding='6px 0';
++        const left = document.createElement('div'); left.style.display='flex'; left.style.gap='8px'; left.style.alignItems='center'
++        const dateSpan = document.createElement('div'); dateSpan.textContent = dobj.date; dateSpan.className='small'
++        left.appendChild(dateSpan)
++        if(dobj.categoryId){
++          const cat = settings.categories.find(c => c.id === dobj.categoryId)
++          if(cat){
++            const tag = document.createElement('span'); tag.className='tag'; tag.textContent = cat.name; tag.style.background = cat.color; left.appendChild(tag)
++          }
++        }
++        wrap.appendChild(left)
++
++        const right = document.createElement('div')
++        const removeBtn = document.createElement('button'); removeBtn.textContent='Remove'
++        removeBtn.addEventListener('click', ()=>{ if(confirm('Remove scheduled date?')) removeScheduled(dobj.date) })
++        right.appendChild(removeBtn)
++        wrap.appendChild(right)
++        scheduledList.appendChild(wrap)
++      })
++    }
++
++    // Categories management
++    function onAddCategory(){
++      const name = catNameInput.value.trim()
++      const color = catColorInput.value
++      if(!name){ alert('Category name required'); return }
++      if(settings.categories.length >= 5){ alert('Maximum 5 categories'); return }
++      const id = generateId('cat')
++      settings.categories.push({ id, name, color })
++      catNameInput.value = ''
++      saveSettings()
++    }
++
++    function removeCategory(id){
++      if(!confirm('Remove category? This will unassign it from any scheduled dates.')) return
++      settings.categories = settings.categories.filter(c => c.id !== id)
++      settings.dates.forEach(d => { if(d.categoryId === id) d.categoryId = null })
++      saveSettings()
++    }
++
++    function renderCategories(){
++      categoriesDiv.innerHTML = ''
++      if(settings.categories.length === 0){
++        categoriesDiv.innerHTML = '<div class="small muted">No categories created</div>'
++        return
++      }
++      settings.categories.forEach(cat=>{
++        const row = document.createElement('div'); row.className='category-row'
++        const sw = document.createElement('span'); sw.className='swatch'; sw.style.background = cat.color
++        const name = document.createElement('div'); name.textContent = cat.name; name.className='small'; name.style.flex='1'
++        const del = document.createElement('button'); del.textContent='Delete'
++        del.addEventListener('click', ()=> removeCategory(cat.id))
++        row.appendChild(sw); row.appendChild(name); row.appendChild(del)
++        categoriesDiv.appendChild(row)
++      })
++    }
++
++    function populateSchedCategorySelect(){
++      schedCategorySelect.innerHTML = '<option value="">(No category)</option>'
++      settings.categories.forEach(cat=>{
++        const opt = document.createElement('option'); opt.value = cat.id; opt.textContent = cat.name; schedCategorySelect.appendChild(opt)
++      })
++    }
++
++    // Calendar rendering
++    function renderCalendar(){
++      calendarBody.innerHTML = ''
++      const { year, month } = state
++      const first = new Date(year, month, 1)
++      const last = new Date(year, month + 1, 0)
++      const daysInMonth = last.getDate()
++      const startWeekday = first.getDay()
++
++      let day = 1 - startWeekday
++      while(day <= daysInMonth){
++        const tr = document.createElement('tr')
++        for(let wd=0; wd<7; wd++){
++          const td = document.createElement('td')
++          if(day < 1 || day > daysInMonth){
++            td.innerHTML = ''
++          } else {
++            const iso = toISO(year, month + 1, day)
++            const cell = document.createElement('div'); cell.className = 'day-cell'
++            const dateEl = document.createElement('div'); dateEl.className='date'; dateEl.textContent = day
++            const note = document.createElement('div'); note.style.fontSize='12px'; note.style.color='var(--muted)'
++
++            const sched = settings.dates.find(d => d.date === iso)
++            if(sched){
++              cell.classList.add('scheduled')
++              if(sched.categoryId){
++                const cat = settings.categories.find(c => c.id === sched.categoryId)
++                if(cat){
++                  const badge = document.createElement('span'); badge.className='sched-badge'; badge.textContent='Scheduled'; badge.style.background = cat.color
++                  cell.appendChild(badge)
++                  cell.style.boxShadow = 'inset 6px 0 0 0 ' + cat.color + '22'
++                }
++              } else {
++                const badge = document.createElement('span'); badge.className='sched-badge'; badge.textContent='Scheduled'; badge.style.background = '#6b7280'
++                cell.appendChild(badge)
++                cell.style.boxShadow = ''
++              }
++              note.textContent = 'Scheduled'
++            } else {
++              note.textContent = ''
++              cell.style.boxShadow = ''
++            }
++
++            if(state.availableSet.has(iso)) cell.classList.add('selected')
++
++            cell.appendChild(dateEl)
++            cell.appendChild(note)
++
++            cell.addEventListener('click', ()=>{
++              if(state.availableSet.has(iso)) state.availableSet.delete(iso); else state.availableSet.add(iso)
++              if(state.currentUser) saveUser(state.currentUser, { name: state.currentUser, available: Array.from(state.availableSet) })
++              renderCalendar(); updateSummary()
++            })
++
++            td.appendChild(cell)
++          }
++          tr.appendChild(td)
++          day++
++        }
++        calendarBody.appendChild(tr)
++      }
++      updateSummary()
++    }
++
++    function updateSummary(){
++      const { year, month } = state
++      const last = new Date(year, month + 1, 0)
++      const daysInMonth = last.getDate()
++      const requiredDates = []
++      for(let d=1; d<=daysInMonth; d++){
++        const iso = toISO(year, month+1, d)
++        if(settings.dates.some(dd => dd.date === iso)) requiredDates.push(iso)
++      }
++      const requiredCount = requiredDates.length
++      const availableRequired = requiredDates.filter(x => state.availableSet.has(x)).length
++      const meets = availableRequired >= requiredCount
++      summaryEl.innerHTML = `Scheduled days this month: <strong>${requiredCount}</strong> — You marked <strong>${availableRequired}</strong> available. ` + (meets ? `<span class="ok">Meets requirement</span>` : `<span class="no">Does not meet requirement</span>`) + `<div style="font-size:12px;color:var(--muted)">(Click days to toggle your availability)</div>`
++    }
++
++    // User actions
++    function onLoadUser(){
++      const name = usernameInput.value.trim()
++      if(!name){ alert('Enter a name to load'); return }
++      const userdata = loadUser(name)
++      state.currentUser = name
++      state.availableSet = new Set(userdata.available || [])
++      usernameInput.value = name
++      renderCalendar()
++      alert('Loaded user: ' + name)
++    }
++
++    function onSaveUser(){
++      const name = usernameInput.value.trim()
++      if(!name){ alert('Enter a name to save'); return }
++      state.currentUser = name
++      saveUser(name, { name, available: Array.from(state.availableSet) })
++      localStorage.setItem('attendance_last_user', name)
++      alert('Saved user: ' + name)
++    }
++
++    // Export: CSV for all saved users (same as Export All)
++    function onExport(){
++      const users = getAllSavedUsers()
++      if(users.length === 0){ alert('No saved users to export'); return }
++      const scheduledAll = settings.dates.map(d => d.date).sort()
++      const scheduledStr = scheduledAll.join(';')
++      const header = ['Name','DatesAvailable','ScheduledDates','ScheduleConflicts']
++      const rows = [header]
++      users.forEach(user=>{
++        const available = new Set(user.available || [])
++        const conflicts = []
++        settings.categories.forEach(cat=>{
++          const catDates = settings.dates.filter(d => d.categoryId === cat.id).map(x=>x.date)
++          const missing = catDates.filter(dt => !available.has(dt))
++          if(missing.length) conflicts.push(`${cat.name}:${missing.join(';')}`)
++        })
++        const uncategorized = settings.dates.filter(d => !d.categoryId).map(x=>x.date).filter(dt => !available.has(dt))
++        if(uncategorized.length) conflicts.push(`Uncategorized:${uncategorized.join(';')}`)
++        const conflictsStr = conflicts.join(' | ')
++        rows.push([ user.name, Array.from(available).sort().join(';'), scheduledStr, conflictsStr ])
++      })
++      const csv = rows.map(r => r.map(cell => `"${(cell||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n')
++      downloadBlob(csv, 'attendance-export-all.csv', 'text/csv;charset=utf-8;')
++    }
++
++    // Export single user
++    function exportUser(user){
++      if(!user || !user.name){ alert('Invalid user'); return }
++      const available = new Set(user.available || [])
++      const scheduledAll = settings.dates.map(d => d.date).sort()
++      const scheduledStr = scheduledAll.join(';')
++      const conflicts = []
++      settings.categories.forEach(cat=>{
++        const catDates = settings.dates.filter(d => d.categoryId === cat.id).map(x=>x.date)
++        const missing = catDates.filter(dt => !available.has(dt))
++        if(missing.length) conflicts.push(`${cat.name}:${missing.join(';')}`)
++      })
++      const uncategorized = settings.dates.filter(d => !d.categoryId).map(x=>x.date).filter(dt => !available.has(dt))
++      if(uncategorized.length) conflicts.push(`Uncategorized:${uncategorized.join(';')}`)
++      const conflictsStr = conflicts.join(' | ')
++      const header = ['Name','DatesAvailable','ScheduledDates','ScheduleConflicts']
++      const rows = [header, [ user.name, Array.from(available).sort().join(';'), scheduledStr, conflictsStr ]]
++      const csv = rows.map(r => r.map(cell => `"${(cell||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n')
++      downloadBlob(csv, `attendance-${sanitizeFilename(user.name)}.csv`, 'text/csv;charset=utf-8;')
++    }
++
++    // Share single user: copy JSON to clipboard and also offer download
++    function shareUser(user){
++      if(!user || !user.name){ alert('Invalid user'); return }
++      const payload = {
++        user,
++        settings
++      }
++      const json = JSON.stringify(payload)
++      navigator.clipboard?.writeText(json).then(()=> {
++        alert('User data + settings copied to clipboard as JSON. You can paste to share.')
++      }).catch(()=> {
++        // fallback: trigger file download
++        downloadBlob(json, `attendance-${sanitizeFilename(user.name)}.json`, 'application/json;charset=utf-8;')
++      })
++    }
++
++    function sanitizeFilename(name){
++      return (name || 'user').replace(/[^a-z0-9-_\.]/gi,'_')
++    }
++
++    function downloadBlob(content, filename, mime){
++      const blob = new Blob([content], { type: mime })
++      const url = URL.createObjectURL(blob)
++      const a = document.createElement('a')
++      a.href = url
++      a.download = filename
++      document.body.appendChild(a)
++      a.click()
++      a.remove()
++      URL.revokeObjectURL(url)
++    }
++
++    // Admin UI
++    function renderAdminUsers(){
++      adminUsersDiv.innerHTML = ''
++      const users = getAllSavedUsers()
++      if(users.length === 0){
++        adminUsersDiv.innerHTML = '<div class="small muted">No saved users</div>'
++        return
++      }
++      users.forEach(u=>{
++        const row = document.createElement('div'); row.className='user-row'
++        const left = document.createElement('div'); left.textContent = u.name || '(no name)'
++        const actions = document.createElement('div'); actions.className='user-actions'
++        const loadBtn = document.createElement('button'); loadBtn.textContent='Load'
++        loadBtn.addEventListener('click', ()=> {
++          usernameInput.value = u.name
++          onLoadUser()
++        })
++        const exportBtn = document.createElement('button'); exportBtn.textContent='Export'
++        exportBtn.addEventListener('click', ()=> exportUser(u))
++        const shareBtn = document.createElement('button'); shareBtn.textContent='Share'
++        shareBtn.addEventListener('click', ()=> shareUser(u))
++        const delBtn = document.createElement('button'); delBtn.textContent='Delete'
++        delBtn.addEventListener('click', ()=> {
++          if(confirm(`Delete user "${u.name}"? This cannot be undone.`)) {
++            deleteUser(u.name)
++          }
++        })
++        actions.appendChild(loadBtn); actions.appendChild(exportBtn); actions.appendChild(shareBtn); actions.appendChild(delBtn)
++        row.appendChild(left); row.appendChild(actions)
++        adminUsersDiv.appendChild(row)
++      })
++    }
++
++    // On load, set initial settings and UI
++    (function bootstrap(){
++      init()
++      const lastUser = localStorage.getItem('attendance_last_user')
++      if(lastUser){
++        usernameInput.value = lastUser
++        const u = loadUser(lastUser)
++        state.currentUser = lastUser
++        state.availableSet = new Set(u.available || [])
++      }
++      renderCategories()
++      populateSchedCategorySelect()
++      renderScheduledList()
++      renderCalendar()
++      renderAdminUsers()
++    })()
++
++    // Persist settings when window unloads
++    window.addEventListener('beforeunload', ()=>{ saveSettings(); if(state.currentUser) { saveUser(state.currentUser, { name: state.currentUser, available: Array.from(state.availableSet) }); localStorage.setItem('attendance_last_user', state.currentUser) } })
++  </script>
++</body>
++</html>
++
