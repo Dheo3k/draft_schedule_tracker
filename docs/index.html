@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Dance Gym Attendance Checker — Interactive Calendar</title>
+  <title>Dance Attendance Checker — Interactive Calendar</title>
   <style>
     :root{--bg:#f7f7fb;--card:#fff;--muted:#6b7280;--accent:#0ea5a4;--danger:#ef4444}
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#111;margin:0;padding:24px}
@@ -20,7 +20,7 @@
     .date{font-weight:700;font-size:13px}
     .day-cell{cursor:pointer;border-radius:8px;padding:6px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
     .day-cell:hover{background:#f3f7f6}
-    .selected{outline:3px solid rgba(14,165,164,0.12);background:rgba(14,165,164,0.06)}
+    .selected{outline:3px solid rgba(117,14,164,0.12);background:rgba(14,165,164,0.06)}
     .required{background:linear-gradient(90deg, rgba(14,165,164,0.06), rgba(59,130,246,0.04));border:2px solid rgba(14,165,164,0.12)}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
     footer{margin-top:14px;display:flex;gap:12px;align-items:center;justify-content:space-between}
@@ -38,8 +38,8 @@
     <div class="card">
       <header>
         <div>
-          <h1>Dance Gym — Attendance Checker</h1>
-          <div class="muted">Click days you CAN attend. Required days are highlighted.</div>
+          <h1>Dance — Attendance Checker</h1>
+          <div class="muted">Click days you CAN attend. Scheduled days are highlighted.</div>
         </div>
         <div class="controls">
           <label for="month" class="muted">Month</label>
@@ -51,7 +51,7 @@
 
       <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
         <div>
-          <label class="muted">Required days pattern:</label>
+          <label class="muted">Scheduled days pattern:</label>
           <select id="requiredPattern">
             <option value="weekday">Weekdays (e.g., Tue, Thu)</option>
             <option value="specific">Specific calendar dates</option>
@@ -82,7 +82,7 @@
     </div>
 
     <div style="margin-top:12px;font-size:13px;color:var(--muted)">
-      Tip: You can change the required-days settings. This is a prototype — let me know the exact requirement rules and I can adapt it.
+      Tip: You can change the scheduled-days settings. This is a prototype — let me know the exact requirement rules and I can adapt it.
     </div>
   </div>
 
