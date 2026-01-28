@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dance Gym Attendance Checker — Interactive Calendar</title>
+  <style>
+    :root{--bg:#f7f7fb;--card:#fff;--muted:#6b7280;--accent:#0ea5a4;--danger:#ef4444}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;background:var(--bg);color:#111;margin:0;padding:24px}
+    .container{max-width:980px;margin:0 auto}
+    .card{background:var(--card);padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between}
+    h1{font-size:20px;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    select,input[type=number]{padding:6px 8px;border-radius:8px;border:1px solid #e6e9ef}
+    .calendar{margin-top:18px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:center;padding:8px;color:var(--muted);font-weight:600}
+    td{width:14.285%;height:86px;border:1px solid #f0f2f6;padding:6px;vertical-align:top}
+    .date{font-weight:700;font-size:13px}
+    .day-cell{cursor:pointer;border-radius:8px;padding:6px;height:100%;display:flex;flex-direction:column;justify-content:space-between}
+    .day-cell:hover{background:#f3f7f6}
+    .selected{outline:3px solid rgba(14,165,164,0.12);background:rgba(14,165,164,0.06)}
+    .required{background:linear-gradient(90deg, rgba(14,165,164,0.06), rgba(59,130,246,0.04));border:2px solid rgba(14,165,164,0.12)}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px}
+    footer{margin-top:14px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+    .summary{font-size:15px}
+    .ok{color:var(--accent);font-weight:700}
+    .no{color:var(--danger);font-weight:700}
+    .muted{color:var(--muted)}
+    .legend{display:flex;gap:8px;align-items:center}
+    .legend .item{display:flex;gap:6px;align-items:center}
+    .swatch{width:14px;height:14px;border-radius:4px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <header>
+        <div>
+          <h1>Dance Gym — Attendance Checker</h1>
+          <div class="muted">Click days you CAN attend. Required days are highlighted.</div>
+        </div>
+        <div class="controls">
+          <label for="month" class="muted">Month</label>
+          <select id="month"></select>
+          <label for="year" class="muted">Year</label>
+          <input id="year" type="number" min="2000" max="2099" style="width:92px" />
+        </div>
+      </header>
+
+      <div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <div>
+          <label class="muted">Required days pattern:</label>
+          <select id="requiredPattern">
+            <option value="weekday">Weekdays (e.g., Tue, Thu)</option>
+            <option value="specific">Specific calendar dates</option>
+          </select>
+        </div>
+        <div id="patternInputs"></div>
+      </div>
+
+      <div class="calendar">
+        <table aria-label="calendar">
+          <thead>
+            <tr id="weekdayRow"></tr>
+          </thead>
+          <tbody id="calendarBody"></tbody>
+        </table>
+      </div>
+
+      <footer>
+        <div class="legend">
+          <div class="item"><span class="swatch" style="background:var(--accent)"></span><span class="muted">Your available days</span></div>
+          <div class="item"><span class="swatch" style="background:linear-gradient(90deg,#0ea5a4,#3b82f6);border:2px solid rgba(0,0,0,0.03)"></span><span class="muted">Required days</span></div>
+        </div>
+
+        <div>
+          <div class="summary" id="summary">Loading…</div>
+        </div>
+      </footer>
+    </div>
+
+    <div style="margin-top:12px;font-size:13px;color:var(--muted)">
+      Tip: You can change the required-days settings. This is a prototype — let me know the exact requirement rules and I can adapt it.
+    </div>
+  </div>
+
+  <script>
+    // Configuration: edit these defaults or allow users to pick in the UI.
+    const defaultRequired = {
+      mode: 'weekday', // 'weekday' or 'specific'
+      // if mode === 'weekday', provide weekdays array (0=Sun..6=Sat). Example: require Tue(2) and Thu(4)
+      weekdays: [2,4],
+      // if mode === 'specific', provide ISO date strings ['2026-02-03','2026-02-10']
+      dates: []
+    }
+
+    // --- UI bootstrapping ---
+    const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December']
+    const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+
+    const monthSelect = document.getElementById('month')
+    const yearInput = document.getElementById('year')
+    const calendarBody = document.getElementById('calendarBody')
+    const weekdayRow = document.getElementById('weekdayRow')
+    const summaryEl = document.getElementById('summary')
+
+    // pattern inputs
+    const requiredPattern = document.getElementById('requiredPattern')
+    const patternInputs = document.getElementById('patternInputs')
+
+    // state
+    let state = {
+      year: new Date().getFullYear(),
+      month: new Date().getMonth(),
+      required: JSON.parse(JSON.stringify(defaultRequired)),
+      availableSet: new Set() // store ISO date strings user clicked
+    }
+
+    function init() {
+      // months
+      monthNames.forEach((m,i)=>{
+        const opt = document.createElement('option');opt.value=i;opt.textContent=m;monthSelect.appendChild(opt)
+      })
+      monthSelect.value = state.month
+      yearInput.value = state.year
+
+      // weekday header
+      weekdayNames.forEach(d=>{const th=document.createElement('th');th.textContent=d;weekdayRow.appendChild(th)})
+
+      // pattern UI
+      renderPatternInputs()
+
+      // listeners
+      monthSelect.addEventListener('change',e=>{state.month = +e.target.value; renderCalendar()})
+      yearInput.addEventListener('change',e=>{state.year = +e.target.value; renderCalendar()})
+      requiredPattern.addEventListener('change',e=>{state.required.mode = e.target.value; renderPatternInputs(); renderCalendar()})
+
+      renderCalendar()
+    }
+
+    function renderPatternInputs(){
+      patternInputs.innerHTML = ''
+      if(state.required.mode === 'weekday'){
+        // show checkboxes for weekdays
+        const container=document.createElement('div');container.style.display='flex';container.style.gap='6px';
+        weekdayNames.forEach((n,i)=>{
+          const id = 'wk_'+i
+          const lbl = document.createElement('label');lbl.style.display='flex';lbl.style.alignItems='center';lbl.style.gap='6px';lbl.style.fontSize='13px'
+          const chk = document.createElement('input');chk.type='checkbox';chk.id=id;chk.checked = state.required.weekdays.includes(i)
+          chk.addEventListener('change',()=>{
+            if(chk.checked) state.required.weekdays.push(i); else state.required.weekdays = state.required.weekdays.filter(x=>x!==i)
+            renderCalendar()
+          })
+          lbl.appendChild(chk);lbl.appendChild(document.createTextNode(n));container.appendChild(lbl)
+        })
+        patternInputs.appendChild(container)
+      } else {
+        // specific dates input (comma separated)
+        const txt = document.createElement('input');txt.type='text';txt.placeholder='YYYY-MM-DD,YYYY-MM-DD';txt.style.width='340px'
+        txt.value = state.required.dates.join(',')
+        txt.addEventListener('change',()=>{state.required.dates = txt.value.split(',').map(s=>s.trim()).filter(Boolean); renderCalendar()})
+        patternInputs.appendChild(txt)
+      }
+    }
+
+    function renderCalendar(){
+      calendarBody.innerHTML = ''
+      const {year,month} = state
+      const first = new Date(year,month,1)
+      const last = new Date(year,month+1,0)
+      const daysInMonth = last.getDate()
+      const startWeekday = first.getDay() // 0..6
+
+      // build rows
+      let day = 1 - startWeekday
+      while(day <= daysInMonth){
+        const tr = document.createElement('tr')
+        for(let wd=0;wd<7;wd++){
+          const td = document.createElement('td')
+          if(day<1 || day>daysInMonth){
+            td.innerHTML = ''
+          } else {
+            const iso = toISO(year,month+1,day)
+            const cell = document.createElement('div');cell.className='day-cell';
+            const dateEl = document.createElement('div');dateEl.className='date';dateEl.textContent = day
+            const note = document.createElement('div');note.style.fontSize='12px';note.style.color='var(--muted)'
+
+            // determine required
+            let isRequired = false
+            if(state.required.mode === 'weekday'){
+              const weekday = new Date(year,month,day).getDay()
+              isRequired = state.required.weekdays.includes(weekday)
+            } else {
+              isRequired = state.required.dates.includes(iso)
+            }
+
+            if(state.availableSet.has(iso)) cell.classList.add('selected')
+            if(isRequired) cell.classList.add('required')
+
+            cell.appendChild(dateEl);
+            cell.appendChild(note);
+
+            cell.addEventListener('click',()=>{
+              if(state.availableSet.has(iso)) state.availableSet.delete(iso); else state.availableSet.add(iso)
+              renderCalendar()
+            })
+
+            // small label
+            if(isRequired) note.textContent = 'Required'
+            else note.textContent = ''
+
+            td.appendChild(cell)
+          }
+          tr.appendChild(td)
+          day++
+        }
+        calendarBody.appendChild(tr)
+      }
+
+      updateSummary()
+    }
+
+    function updateSummary(){
+      // compute required dates for this month view
+      const {year,month} = state
+      const last = new Date(year,month+1,0)
+      const daysInMonth = last.getDate()
+      const requiredDates = []
+      for(let d=1;d<=daysInMonth;d++){
+        const iso = toISO(year,month+1,d)
+        let isRequired = false
+        if(state.required.mode === 'weekday'){
+          const weekday = new Date(year,month,d).getDay()
+          isRequired = state.required.weekdays.includes(weekday)
+        } else {
+          isRequired = state.required.dates.includes(iso)
+        }
+        if(isRequired) requiredDates.push(iso)
+      }
+
+      const requiredCount = requiredDates.length
+      const availableRequired = requiredDates.filter(x=>state.availableSet.has(x)).length
+
+      const meets = availableRequired >= requiredCount
+
+      summaryEl.innerHTML = `Required days this month: <strong>${requiredCount}</strong> — You marked <strong>${availableRequired}</strong> available. ` + (meets ? `<span class="ok">Meets requirement</span>` : `<span class="no">Does not meet requirement</span>`) + `<div style="font-size:12px;color:var(--muted)">(Click days to toggle your availability)</div>`
+    }
+
+    function toISO(y,m,d){
+      const mm = String(m).padStart(2,'0'); const dd = String(d).padStart(2,'0'); return `${y}-${mm}-${dd}`
+    }
+
+    // initialize state from defaults
+    state.required = JSON.parse(JSON.stringify(defaultRequired))
+    // set UI initial values
+    init()
+  </script>
+</body>
+</html>
